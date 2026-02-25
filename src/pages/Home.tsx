@@ -1,4 +1,3 @@
-import * as React from "react";
 import { ProjectFilter } from "@/components/ProjectFilter";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SpansDataTable } from "@/components/SpansDataTable";
@@ -7,33 +6,13 @@ import { ColumnVisibilityToggle } from "@/components/ColumnVisibilityToggle";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
 import { TableIcon, ChartBarIcon } from "lucide-react";
-import { useSpansExport } from "@/hooks/useSpansExport";
 import { useSpansTable } from "@/hooks/useSpansTable";
-import { useStore } from "@/stores/useStore";
-
-type ViewMode = "table" | "charts";
+import { useHomeFilters } from "@/hooks/useHomeFilters";
+import { useSpansData } from "@/hooks/useSpansData";
 
 export function Home() {
-  const { selectedProject, dateRange } = useStore();
-  const [viewMode, setViewMode] = React.useState<ViewMode>("table");
-
-  const startTime = dateRange?.from
-    ? dateRange.from.toISOString()
-    : undefined;
-  const endTime = dateRange?.to ? dateRange.to.toISOString() : undefined;
-
-  const { data, isLoading } = useSpansExport(
-    {
-      projectName: selectedProject?.name,
-      startTime,
-      endTime,
-    },
-    {
-      enabled: !!selectedProject?.name && !!startTime && !!endTime,
-    }
-  );
-
-  const spansData = data?.data || [];
+  const { viewMode, handleViewModeChange } = useHomeFilters();
+  const { spansData, isLoading } = useSpansData();
   const table = useSpansTable(spansData);
 
   return (
@@ -47,7 +26,7 @@ export function Home() {
             <Button
               variant={viewMode === "table" ? "default" : "outline"}
               size="icon"
-              onClick={() => setViewMode("table")}
+              onClick={() => handleViewModeChange("table")}
               aria-label="Table view"
             >
               <TableIcon className="h-4 w-4" />
@@ -55,7 +34,7 @@ export function Home() {
             <Button
               variant={viewMode === "charts" ? "default" : "outline"}
               size="icon"
-              onClick={() => setViewMode("charts")}
+              onClick={() => handleViewModeChange("charts")}
               aria-label="Charts view"
             >
               <ChartBarIcon className="h-4 w-4" />
