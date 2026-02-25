@@ -1,0 +1,15 @@
+<svg
+    width="32"
+    height="32"
+    viewBox="0 0 32 32"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+>
+    <!-- White background -->
+    <rect width="32" height="32" fill="#ffffff" rx="4"/>
+    <!-- W letter - centered -->
+    <g transform="translate(9.5, 9.5)">
+        <path d="M0 0L3.5 13H5L6.5 5L8 13H9.5L13 0H11L9 10.5L8 0H6.5L5.5 10.5L4 0H0Z" fill="#1a1a1a"/>
+    </g>
+</svg>
+
