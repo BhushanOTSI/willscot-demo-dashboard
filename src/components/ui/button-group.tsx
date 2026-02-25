@@ -14,13 +14,14 @@ export function ButtonGroup({ className, children, ...props }: ButtonGroupProps)
     >
       {React.Children.map(children, (child, index) => {
         if (React.isValidElement(child)) {
+          const childProps = child.props as { className?: string };
           return React.cloneElement(child, {
             className: cn(
               "rounded-none border-0",
               index === 0 && "rounded-l-md",
               index === React.Children.count(children) - 1 && "rounded-r-md",
               index > 0 && "border-l",
-              child.props.className
+              childProps.className
             ),
           } as any);
         }

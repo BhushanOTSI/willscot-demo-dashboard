@@ -7,9 +7,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { addDays, format, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { type DateRange } from "react-day-picker";
 import { useStore } from "@/stores/useStore";
 
 export function DateRangePicker() {
@@ -39,7 +38,7 @@ export function DateRangePicker() {
       <Field className="w-[300px]">
         <FieldLabel htmlFor="date-picker-range">Date Range</FieldLabel>
         <Popover>
-          <PopoverTrigger asChild>
+          <PopoverTrigger>
             <Button
               variant="outline"
               id="date-picker-range"

@@ -16,7 +16,7 @@ export function ColumnVisibilityToggle<TData>({
 }: ColumnVisibilityToggleProps<TData>) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger>
         <Button variant="outline" className="ml-auto">
           Columns
         </Button>

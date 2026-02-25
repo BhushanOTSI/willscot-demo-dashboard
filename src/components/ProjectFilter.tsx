@@ -6,7 +6,6 @@ import {
   ComboboxList,
   ComboboxItem,
   ComboboxEmpty,
-  ComboboxValue,
 } from "@/components/ui/combobox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { useProjects, type Project } from "@/hooks/useProjects";
