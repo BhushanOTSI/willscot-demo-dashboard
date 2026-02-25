@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart, Pie, PieChart, Cell } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type SpanData } from "@/hooks/useSpansExport";
@@ -14,38 +14,194 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
     // Process data for charts (hooks must be called before early returns)
     const costOverTime = React.useMemo(() => {
         if (!data || data.length === 0) return [];
-        const grouped = data.reduce((acc, span) => {
+        // Only consider rows with parent_id (exclude parent traces)
+        const filteredData = data.filter(span => span.parent_id !== null);
+        const grouped = filteredData.reduce((acc, span) => {
             const date = format(new Date(span.start_time), "MMM dd");
             const cost = span["attributes.llm.cost.total"] || 0;
             if (!acc[date]) {
-                acc[date] = { date, cost: 0, count: 0 };
+                acc[date] = { date, cost: 0, count: 0, originalDate: new Date(span.start_time) };
             }
             acc[date].cost += cost;
             acc[date].count += 1;
             return acc;
-        }, {} as Record<string, { date: string; cost: number; count: number }>);
-        return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+        }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
+        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
+
+        // Ensure at least 7 days of data
+        const result: { date: string; cost: number; count: number }[] = [];
+        const dateMap = new Map(sorted.map(item => [item.date, item]));
+
+        // Get the earliest and latest dates
+        if (sorted.length > 0) {
+            const earliestDate = sorted[0].originalDate;
+            const latestDate = sorted[sorted.length - 1].originalDate;
+
+            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
+            const startDate = sorted.length >= 7
+                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
+                : earliestDate;
+
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(currentDate.getDate() + i);
+                const dateStr = format(currentDate, "MMM dd");
+                const existing = dateMap.get(dateStr);
+                result.push({
+                    date: dateStr,
+                    cost: existing?.cost || 0,
+                    count: existing?.count || 0,
+                });
+            }
+        } else {
+            // If no data, generate 7 days from today going backwards
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                result.push({
+                    date: format(date, "MMM dd"),
+                    cost: 0,
+                    count: 0,
+                });
+            }
+        }
+
+        return result;
     }, [data]);
 
-    const tokenUsage = React.useMemo(() => {
+    const botMessageCostOverTime = React.useMemo(() => {
         if (!data || data.length === 0) return [];
-        const grouped = data.reduce((acc, span) => {
+        // Only consider bot messages: spans with parent_id AND name contains "bot"
+        const filteredData = data.filter(span =>
+            span.parent_id !== null &&
+            span.name?.toLowerCase().includes("bot")
+        );
+        const grouped = filteredData.reduce((acc, span) => {
             const date = format(new Date(span.start_time), "MMM dd");
-            const tokens = span["attributes.llm.token_count.total"] || 0;
+            const cost = span["attributes.llm.cost.total"] || 0;
             if (!acc[date]) {
-                acc[date] = { date, tokens: 0, count: 0 };
+                acc[date] = { date, cost: 0, count: 0, originalDate: new Date(span.start_time) };
             }
-            acc[date].tokens += tokens;
+            acc[date].cost += cost;
             acc[date].count += 1;
             return acc;
-        }, {} as Record<string, { date: string; tokens: number; count: number }>);
-        return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+        }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
+        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
+
+        // Ensure at least 7 days of data
+        const result: { date: string; cost: number; count: number }[] = [];
+        const dateMap = new Map(sorted.map(item => [item.date, item]));
+
+        // Get the earliest and latest dates
+        if (sorted.length > 0) {
+            const earliestDate = sorted[0].originalDate;
+            const latestDate = sorted[sorted.length - 1].originalDate;
+
+            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
+            const startDate = sorted.length >= 7
+                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
+                : earliestDate;
+
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(currentDate.getDate() + i);
+                const dateStr = format(currentDate, "MMM dd");
+                const existing = dateMap.get(dateStr);
+                result.push({
+                    date: dateStr,
+                    cost: existing?.cost || 0,
+                    count: existing?.count || 0,
+                });
+            }
+        } else {
+            // If no data, generate 7 days from today going backwards
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                result.push({
+                    date: format(date, "MMM dd"),
+                    cost: 0,
+                    count: 0,
+                });
+            }
+        }
+
+        return result;
+    }, [data]);
+
+    const userMessageCostOverTime = React.useMemo(() => {
+        if (!data || data.length === 0) return [];
+        // Only consider user messages: spans with parent_id AND name does NOT contain "bot"
+        const filteredData = data.filter(span =>
+            span.parent_id !== null &&
+            !span.name?.toLowerCase().includes("bot")
+        );
+        const grouped = filteredData.reduce((acc, span) => {
+            const date = format(new Date(span.start_time), "MMM dd");
+            const cost = span["attributes.llm.cost.total"] || 0;
+            if (!acc[date]) {
+                acc[date] = { date, cost: 0, count: 0, originalDate: new Date(span.start_time) };
+            }
+            acc[date].cost += cost;
+            acc[date].count += 1;
+            return acc;
+        }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
+        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
+
+        // Ensure at least 7 days of data
+        const result: { date: string; cost: number; count: number }[] = [];
+        const dateMap = new Map(sorted.map(item => [item.date, item]));
+
+        // Get the earliest and latest dates
+        if (sorted.length > 0) {
+            const earliestDate = sorted[0].originalDate;
+            const latestDate = sorted[sorted.length - 1].originalDate;
+
+            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
+            const startDate = sorted.length >= 7
+                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
+                : earliestDate;
+
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(currentDate.getDate() + i);
+                const dateStr = format(currentDate, "MMM dd");
+                const existing = dateMap.get(dateStr);
+                result.push({
+                    date: dateStr,
+                    cost: existing?.cost || 0,
+                    count: existing?.count || 0,
+                });
+            }
+        } else {
+            // If no data, generate 7 days from today going backwards
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                result.push({
+                    date: format(date, "MMM dd"),
+                    cost: 0,
+                    count: 0,
+                });
+            }
+        }
+
+        return result;
     }, [data]);
 
     const modelDistribution = React.useMemo(() => {
         if (!data || data.length === 0) return [];
-        const grouped = data.reduce((acc, span) => {
-            const model = span["attributes.llm.model_name"] || "Unknown";
+        // Only consider rows with parent_id (exclude parent traces) and filter out spans without model names
+        const filteredData = data.filter(span =>
+            span.parent_id !== null &&
+            span["attributes.llm.model_name"] &&
+            span["attributes.llm.model_name"].trim() !== ""
+        );
+        const grouped = filteredData.reduce((acc, span) => {
+            const model = span["attributes.llm.model_name"];
             if (!acc[model]) {
                 acc[model] = { model, count: 0, cost: 0 };
             }
@@ -64,7 +220,9 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
 
     const spanKindDistribution = React.useMemo(() => {
         if (!data || data.length === 0) return [];
-        const grouped = data.reduce((acc, span) => {
+        // Only consider rows with parent_id (exclude parent traces)
+        const filteredData = data.filter(span => span.parent_id !== null);
+        const grouped = filteredData.reduce((acc, span) => {
             const kind = span["attributes.openinference.span.kind"] || "Unknown";
             if (!acc[kind]) {
                 acc[kind] = { kind, count: 0 };
@@ -75,16 +233,25 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
         return Object.values(grouped).sort((a, b) => b.count - a.count);
     }, [data]);
 
-    const totalCost = React.useMemo(() =>
-        (data || []).reduce((sum, span) => sum + (span["attributes.llm.cost.total"] || 0), 0),
-        [data]
-    );
-    const totalTokens = React.useMemo(() =>
-        (data || []).reduce((sum, span) => sum + (span["attributes.llm.token_count.total"] || 0), 0),
-        [data]
-    );
-    const avgCostPerSpan = data && data.length > 0 ? totalCost / data.length : 0;
-    const avgTokensPerSpan = data && data.length > 0 ? totalTokens / data.length : 0;
+    const totalCost = React.useMemo(() => {
+        // Only consider rows with parent_id (exclude parent traces)
+        const filteredData = (data || []).filter(span => span.parent_id !== null);
+        return filteredData.reduce((sum, span) => sum + (span["attributes.llm.cost.total"] || 0), 0);
+    }, [data]);
+
+    // Calculate message metrics (only for child spans with parent_id)
+    const messageMetrics = React.useMemo(() => {
+        const childSpans = (data || []).filter(span => span.parent_id !== null);
+        const totalMessages = childSpans.length;
+        const botMessages = childSpans.filter(span =>
+            span.name?.toLowerCase().includes("bot")
+        ).length;
+        const userMessages = childSpans.filter(span =>
+            !span.name?.toLowerCase().includes("bot")
+        ).length;
+
+        return { totalMessages, botMessages, userMessages };
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -109,10 +276,17 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
         },
     } satisfies ChartConfig;
 
-    const tokenConfig = {
-        tokens: {
-            label: "Tokens",
+    const botMessageCostConfig = {
+        cost: {
+            label: "Bot Message Cost",
             color: "var(--chart-2)",
+        },
+    } satisfies ChartConfig;
+
+    const userMessageCostConfig = {
+        cost: {
+            label: "User Message Cost",
+            color: "var(--chart-3)",
         },
     } satisfies ChartConfig;
 
@@ -154,34 +328,40 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Total Tokens</CardDescription>
-                        <CardTitle className="text-2xl">{totalTokens.toLocaleString()}</CardTitle>
+                        <CardDescription>Total Messages</CardDescription>
+                        <CardTitle className="text-2xl">{messageMetrics.totalMessages.toLocaleString()}</CardTitle>
                     </CardHeader>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Avg Cost/Span</CardDescription>
-                        <CardTitle className="text-2xl">${avgCostPerSpan.toFixed(4)}</CardTitle>
+                        <CardDescription>Bot Messages</CardDescription>
+                        <CardTitle className="text-2xl">{messageMetrics.botMessages.toLocaleString()}</CardTitle>
                     </CardHeader>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Avg Tokens/Span</CardDescription>
-                        <CardTitle className="text-2xl">{Math.round(avgTokensPerSpan).toLocaleString()}</CardTitle>
+                        <CardDescription>User Messages</CardDescription>
+                        <CardTitle className="text-2xl">{messageMetrics.userMessages.toLocaleString()}</CardTitle>
                     </CardHeader>
                 </Card>
             </div>
 
-            {/* Cost Over Time & Token Usage Over Time - Side by Side */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* Cost Over Time */}
+            <div className="grid gap-4 md:grid-cols-1">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Cost Over Time</CardTitle>
-                        <CardDescription>Total cost per day</CardDescription>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Cost Over Time</CardTitle>
+                        <CardDescription className="text-xs">Total cost per day</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={costConfig} className="min-h-[200px] w-full">
-                            <BarChart accessibilityLayer data={costOverTime}>
+                    <CardContent className="pt-2">
+                        <ChartContainer config={costConfig} className="h-[200px] w-full">
+                            <AreaChart accessibilityLayer data={costOverTime}>
+                                <defs>
+                                    <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="var(--color-cost)" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="var(--color-cost)" stopOpacity={0.1} />
+                                    </linearGradient>
+                                </defs>
                                 <CartesianGrid vertical={false} />
                                 <XAxis
                                     dataKey="date"
@@ -195,20 +375,36 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                                 />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="cost" fill="var(--color-cost)" radius={4} />
-                            </BarChart>
+                                <Area
+                                    type="monotone"
+                                    dataKey="cost"
+                                    stroke="var(--color-cost)"
+                                    strokeWidth={2}
+                                    fill="url(#costGradient)"
+                                    dot={false}
+                                />
+                            </AreaChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
+            </div>
 
+            {/* Bot Message Cost & User Message Cost Over Time - Side by Side */}
+            <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Token Usage Over Time</CardTitle>
-                        <CardDescription>Total tokens per day</CardDescription>
+                        <CardTitle>Bot Message Cost Over Time</CardTitle>
+                        <CardDescription>Bot message cost per day</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ChartContainer config={tokenConfig} className="min-h-[200px] w-full">
-                            <LineChart accessibilityLayer data={tokenUsage}>
+                        <ChartContainer config={botMessageCostConfig} className="min-h-[200px] w-full">
+                            <AreaChart accessibilityLayer data={botMessageCostOverTime}>
+                                <defs>
+                                    <linearGradient id="botMessageCostGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="var(--color-cost)" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="var(--color-cost)" stopOpacity={0.1} />
+                                    </linearGradient>
+                                </defs>
                                 <CartesianGrid vertical={false} />
                                 <XAxis
                                     dataKey="date"
@@ -219,17 +415,58 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                                 <YAxis
                                     tickLine={false}
                                     axisLine={false}
-                                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                                    tickFormatter={(value) => `$${value.toFixed(2)}`}
                                 />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Line
+                                <Area
                                     type="monotone"
-                                    dataKey="tokens"
-                                    stroke="var(--color-tokens)"
+                                    dataKey="cost"
+                                    stroke="var(--color-cost)"
                                     strokeWidth={2}
+                                    fill="url(#botMessageCostGradient)"
                                     dot={false}
                                 />
-                            </LineChart>
+                            </AreaChart>
+                        </ChartContainer>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>User Message Cost Over Time</CardTitle>
+                        <CardDescription>User message cost per day</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ChartContainer config={userMessageCostConfig} className="min-h-[200px] w-full">
+                            <AreaChart accessibilityLayer data={userMessageCostOverTime}>
+                                <defs>
+                                    <linearGradient id="userMessageCostGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="var(--color-cost)" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="var(--color-cost)" stopOpacity={0.1} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} />
+                                <XAxis
+                                    dataKey="date"
+                                    tickLine={false}
+                                    tickMargin={10}
+                                    axisLine={false}
+                                />
+                                <YAxis
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `$${value.toFixed(2)}`}
+                                />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="cost"
+                                    stroke="var(--color-cost)"
+                                    strokeWidth={2}
+                                    fill="url(#userMessageCostGradient)"
+                                    dot={false}
+                                />
+                            </AreaChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
