@@ -218,18 +218,20 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
             }));
     }, [data]);
 
-    const spanKindDistribution = React.useMemo(() => {
+    const botNameDistribution = React.useMemo(() => {
         if (!data || data.length === 0) return [];
         // Only consider rows with parent_id (exclude parent traces)
         const filteredData = data.filter(span => span.parent_id !== null);
         const grouped = filteredData.reduce((acc, span) => {
-            const kind = span["attributes.openinference.span.kind"] || "Unknown";
-            if (!acc[kind]) {
-                acc[kind] = { kind, count: 0 };
+            // Access metadata.BotName from attributes.metadata
+            const metadata = span["attributes.metadata"];
+            const botName = metadata?.BotName || "Unknown";
+            if (!acc[botName]) {
+                acc[botName] = { botName, count: 0 };
             }
-            acc[kind].count += 1;
+            acc[botName].count += 1;
             return acc;
-        }, {} as Record<string, { kind: string; count: number }>);
+        }, {} as Record<string, { botName: string; count: number }>);
         return Object.values(grouped).sort((a, b) => b.count - a.count);
     }, [data]);
 
@@ -305,10 +307,10 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
         return acc;
     }, {} as ChartConfig);
 
-    const kindConfig = spanKindDistribution.reduce((acc, item, index) => {
+    const botNameConfig = botNameDistribution.reduce((acc, item, index) => {
         const chartNum = (index % 5) + 1;
-        acc[item.kind] = {
-            label: item.kind,
+        acc[item.botName] = {
+            label: item.botName.length > 20 ? item.botName.substring(0, 20) + "..." : item.botName,
             color: `var(--chart-${chartNum})`,
         };
         return acc;
@@ -512,25 +514,25 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                     </CardContent>
                 </Card>
 
-                {/* Span Kind Distribution */}
+                {/* Bot Name Distribution */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Span Kind Distribution</CardTitle>
-                        <CardDescription>Distribution by span kind</CardDescription>
+                        <CardTitle>Bot Name Distribution</CardTitle>
+                        <CardDescription>Distribution by bot name</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ChartContainer config={kindConfig} className="min-h-[300px] w-full">
+                        <ChartContainer config={botNameConfig} className="min-h-[300px] w-full">
                             <PieChart>
                                 <Pie
-                                    data={spanKindDistribution}
+                                    data={botNameDistribution}
                                     dataKey="count"
-                                    nameKey="kind"
+                                    nameKey="botName"
                                     cx="50%"
                                     cy="50%"
                                     outerRadius={100}
-                                    label={({ kind, count }) => `${kind}: ${count}`}
+                                    label={({ botName, count }) => `${botName.length > 15 ? botName.substring(0, 15) + "..." : botName}: ${count}`}
                                 >
-                                    {spanKindDistribution.map((_, index) => (
+                                    {botNameDistribution.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
