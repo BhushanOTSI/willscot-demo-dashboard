@@ -13,7 +13,7 @@ import { useSpansData } from "@/hooks/useSpansData";
 export function Home() {
   const { viewMode, handleViewModeChange } = useHomeFilters();
   const { spansData, isLoading } = useSpansData();
-  const table = useSpansTable(spansData);
+  const { table, expanded, setExpanded } = useSpansTable(spansData);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -46,7 +46,12 @@ export function Home() {
 
       {/* Table or Charts */}
       {viewMode === "table" ? (
-        <SpansDataTable table={table} isLoading={isLoading} />
+        <SpansDataTable
+          table={table}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          isLoading={isLoading}
+        />
       ) : (
         <SpansCharts data={spansData} isLoading={isLoading} />
       )}
