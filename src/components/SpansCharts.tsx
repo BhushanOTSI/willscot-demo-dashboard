@@ -243,14 +243,20 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
     const messageMetrics = React.useMemo(() => {
         const childSpans = (data || []).filter(span => span.parent_id !== null);
         const totalMessages = childSpans.length;
-        const botMessages = childSpans.filter(span =>
-            span.name?.toLowerCase().includes("bot")
-        ).length;
-        const userMessages = childSpans.filter(span =>
-            !span.name?.toLowerCase().includes("bot")
-        ).length;
 
-        return { totalMessages, botMessages, userMessages };
+        const botSpans = childSpans.filter(span =>
+            span.name?.toLowerCase().includes("bot")
+        );
+        const botMessages = botSpans.length;
+        const botCost = botSpans.reduce((sum, span) => sum + (span["attributes.llm.cost.total"] || 0), 0);
+
+        const userSpans = childSpans.filter(span =>
+            !span.name?.toLowerCase().includes("bot")
+        );
+        const userMessages = userSpans.length;
+        const userCost = userSpans.reduce((sum, span) => sum + (span["attributes.llm.cost.total"] || 0), 0);
+
+        return { totalMessages, botMessages, botCost, userMessages, userCost };
     }, [data]);
 
     if (isLoading) {
@@ -319,29 +325,32 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
     return (
         <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardDescription>Total Cost</CardDescription>
                         <CardTitle className="text-2xl">${totalCost.toFixed(4)}</CardTitle>
+                        <CardDescription className="pt-1 text-xs">
+                            {messageMetrics.totalMessages.toLocaleString()} messages
+                        </CardDescription>
                     </CardHeader>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Total Messages</CardDescription>
-                        <CardTitle className="text-2xl">{messageMetrics.totalMessages.toLocaleString()}</CardTitle>
+                        <CardDescription>Bot Message Cost</CardDescription>
+                        <CardTitle className="text-2xl">${messageMetrics.botCost.toFixed(4)}</CardTitle>
+                        <CardDescription className="pt-1 text-xs">
+                            {messageMetrics.botMessages.toLocaleString()} messages
+                        </CardDescription>
                     </CardHeader>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardDescription>Bot Messages</CardDescription>
-                        <CardTitle className="text-2xl">{messageMetrics.botMessages.toLocaleString()}</CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>User Messages</CardDescription>
-                        <CardTitle className="text-2xl">{messageMetrics.userMessages.toLocaleString()}</CardTitle>
+                        <CardDescription>User Message Cost</CardDescription>
+                        <CardTitle className="text-2xl">${messageMetrics.userCost.toFixed(4)}</CardTitle>
+                        <CardDescription className="pt-1 text-xs">
+                            {messageMetrics.userMessages.toLocaleString()} messages
+                        </CardDescription>
                     </CardHeader>
                 </Card>
             </div>
