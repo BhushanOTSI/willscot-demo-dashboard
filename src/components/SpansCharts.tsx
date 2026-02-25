@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Area, AreaChart } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type SpanData } from "@/hooks/useSpansExport";
 import { format } from "date-fns";
@@ -227,12 +227,19 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
             const metadata = span["attributes.metadata"];
             const botName = metadata?.BotName || "Unknown";
             if (!acc[botName]) {
-                acc[botName] = { botName, count: 0 };
+                acc[botName] = { botName, count: 0, cost: 0 };
             }
             acc[botName].count += 1;
+            acc[botName].cost += span["attributes.llm.cost.total"] || 0;
             return acc;
-        }, {} as Record<string, { botName: string; count: number }>);
-        return Object.values(grouped).sort((a, b) => b.count - a.count);
+        }, {} as Record<string, { botName: string; count: number; cost: number }>);
+        return Object.values(grouped)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5)
+            .map((item, index) => ({
+                ...item,
+                fill: `var(--chart-${(index % 5) + 1})`,
+            }));
     }, [data]);
 
     const totalCost = React.useMemo(() => {
@@ -315,14 +322,6 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
         };
         return acc;
     }, {} as ChartConfig);
-
-    const COLORS = [
-        "var(--chart-1)",
-        "var(--chart-2)",
-        "var(--chart-3)",
-        "var(--chart-4)",
-        "var(--chart-5)",
-    ];
 
     return (
         <div className="space-y-6">
@@ -428,7 +427,13 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                                     axisLine={false}
                                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                                 />
-                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartTooltipContent
+                                            formatter={(value) => `$${Number(value).toFixed(4)}`}
+                                        />
+                                    }
+                                />
                                 <Area
                                     type="monotone"
                                     dataKey="cost"
@@ -468,7 +473,13 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                                     axisLine={false}
                                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                                 />
-                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartTooltipContent
+                                            formatter={(value) => `$${Number(value).toFixed(4)}`}
+                                        />
+                                    }
+                                />
                                 <Area
                                     type="monotone"
                                     dataKey="cost"
@@ -518,27 +529,28 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Bot Name Distribution</CardTitle>
-                        <CardDescription>Distribution by bot name</CardDescription>
+                        <CardDescription>Usage by bot name</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={botNameConfig} className="min-h-[300px] w-full">
-                            <PieChart>
-                                <Pie
-                                    data={botNameDistribution}
-                                    dataKey="count"
-                                    nameKey="botName"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={100}
-                                    label={({ botName, count }) => `${botName.length > 15 ? botName.substring(0, 15) + "..." : botName}: ${count}`}
-                                >
-                                    {botNameDistribution.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
+                            <BarChart accessibilityLayer data={botNameDistribution} layout="vertical">
+                                <CartesianGrid horizontal={false} />
+                                <XAxis type="number" tickLine={false} axisLine={false} />
+                                <YAxis
+                                    dataKey="botName"
+                                    type="category"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    width={120}
+                                    tickFormatter={(value) => value.length > 15 ? value.substring(0, 15) + "..." : value}
+                                />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <ChartLegend content={<ChartLegendContent />} />
-                            </PieChart>
+                                <Bar
+                                    dataKey="count"
+                                    fill="var(--chart-1)"
+                                    radius={4}
+                                />
+                            </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
