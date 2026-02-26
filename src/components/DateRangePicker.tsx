@@ -37,7 +37,7 @@ export function DateRangePicker() {
     ? Math.ceil(
       (dateRange.to.getTime() - dateRange.from.getTime()) /
       (1000 * 60 * 60 * 24)
-    );
+    ) : 0;
   const isLast7Days = days === 7;
   const isLast30Days = days === 30;
   return (
