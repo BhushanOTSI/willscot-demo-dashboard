@@ -10,6 +10,62 @@ interface SpansChartsProps {
     isLoading?: boolean;
 }
 
+// Helper function to process date-based chart data
+// Ensures at least 7 days are shown, filling missing dates with zeros
+function processDateData(
+    grouped: Record<string, { date: string; cost: number; count: number; originalDate: Date }>
+): { date: string; cost: number; count: number }[] {
+    const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
+
+    if (sorted.length === 0) {
+        // If no data, generate 7 days from today going backwards
+        const today = new Date();
+        const result: { date: string; cost: number; count: number }[] = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            result.push({
+                date: format(date, "MMM dd"),
+                cost: 0,
+                count: 0,
+            });
+        }
+        return result;
+    }
+
+    const earliestDate = sorted[0].originalDate;
+    const latestDate = sorted[sorted.length - 1].originalDate;
+    const dateMap = new Map(sorted.map(item => [item.date, item]));
+
+    // Calculate the number of days between earliest and latest
+    const daysDiff = Math.ceil((latestDate.getTime() - earliestDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+    if (daysDiff >= 7) {
+        // If we have 7+ days of data range, show all dates that have data
+        return sorted.map(item => ({
+            date: item.date,
+            cost: item.cost,
+            count: item.count,
+        }));
+    } else {
+        // If we have fewer than 7 days, fill in to make 7 days total
+        // Start from earliest date and go forward 7 days
+        const result: { date: string; cost: number; count: number }[] = [];
+        for (let i = 0; i < 7; i++) {
+            const currentDate = new Date(earliestDate);
+            currentDate.setDate(currentDate.getDate() + i);
+            const dateStr = format(currentDate, "MMM dd");
+            const existing = dateMap.get(dateStr);
+            result.push({
+                date: dateStr,
+                cost: existing?.cost || 0,
+                count: existing?.count || 0,
+            });
+        }
+        return result;
+    }
+}
+
 export function SpansCharts({ data, isLoading }: SpansChartsProps) {
     // Process data for charts (hooks must be called before early returns)
     const costOverTime = React.useMemo(() => {
@@ -26,48 +82,8 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
             acc[date].count += 1;
             return acc;
         }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
-        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
 
-        // Ensure at least 7 days of data
-        const result: { date: string; cost: number; count: number }[] = [];
-        const dateMap = new Map(sorted.map(item => [item.date, item]));
-
-        // Get the earliest and latest dates
-        if (sorted.length > 0) {
-            const earliestDate = sorted[0].originalDate;
-            const latestDate = sorted[sorted.length - 1].originalDate;
-
-            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
-            const startDate = sorted.length >= 7
-                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
-                : earliestDate;
-
-            for (let i = 0; i < 7; i++) {
-                const currentDate = new Date(startDate);
-                currentDate.setDate(currentDate.getDate() + i);
-                const dateStr = format(currentDate, "MMM dd");
-                const existing = dateMap.get(dateStr);
-                result.push({
-                    date: dateStr,
-                    cost: existing?.cost || 0,
-                    count: existing?.count || 0,
-                });
-            }
-        } else {
-            // If no data, generate 7 days from today going backwards
-            const today = new Date();
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                result.push({
-                    date: format(date, "MMM dd"),
-                    cost: 0,
-                    count: 0,
-                });
-            }
-        }
-
-        return result;
+        return processDateData(grouped);
     }, [data]);
 
     const botMessageCostOverTime = React.useMemo(() => {
@@ -87,48 +103,8 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
             acc[date].count += 1;
             return acc;
         }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
-        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
 
-        // Ensure at least 7 days of data
-        const result: { date: string; cost: number; count: number }[] = [];
-        const dateMap = new Map(sorted.map(item => [item.date, item]));
-
-        // Get the earliest and latest dates
-        if (sorted.length > 0) {
-            const earliestDate = sorted[0].originalDate;
-            const latestDate = sorted[sorted.length - 1].originalDate;
-
-            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
-            const startDate = sorted.length >= 7
-                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
-                : earliestDate;
-
-            for (let i = 0; i < 7; i++) {
-                const currentDate = new Date(startDate);
-                currentDate.setDate(currentDate.getDate() + i);
-                const dateStr = format(currentDate, "MMM dd");
-                const existing = dateMap.get(dateStr);
-                result.push({
-                    date: dateStr,
-                    cost: existing?.cost || 0,
-                    count: existing?.count || 0,
-                });
-            }
-        } else {
-            // If no data, generate 7 days from today going backwards
-            const today = new Date();
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                result.push({
-                    date: format(date, "MMM dd"),
-                    cost: 0,
-                    count: 0,
-                });
-            }
-        }
-
-        return result;
+        return processDateData(grouped);
     }, [data]);
 
     const userMessageCostOverTime = React.useMemo(() => {
@@ -148,48 +124,8 @@ export function SpansCharts({ data, isLoading }: SpansChartsProps) {
             acc[date].count += 1;
             return acc;
         }, {} as Record<string, { date: string; cost: number; count: number; originalDate: Date }>);
-        const sorted = Object.values(grouped).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
 
-        // Ensure at least 7 days of data
-        const result: { date: string; cost: number; count: number }[] = [];
-        const dateMap = new Map(sorted.map(item => [item.date, item]));
-
-        // Get the earliest and latest dates
-        if (sorted.length > 0) {
-            const earliestDate = sorted[0].originalDate;
-            const latestDate = sorted[sorted.length - 1].originalDate;
-
-            // Generate 7 days starting from the earliest date, or use last 7 days if we have more data
-            const startDate = sorted.length >= 7
-                ? new Date(latestDate.getTime() - 6 * 24 * 60 * 60 * 1000) // Last 7 days
-                : earliestDate;
-
-            for (let i = 0; i < 7; i++) {
-                const currentDate = new Date(startDate);
-                currentDate.setDate(currentDate.getDate() + i);
-                const dateStr = format(currentDate, "MMM dd");
-                const existing = dateMap.get(dateStr);
-                result.push({
-                    date: dateStr,
-                    cost: existing?.cost || 0,
-                    count: existing?.count || 0,
-                });
-            }
-        } else {
-            // If no data, generate 7 days from today going backwards
-            const today = new Date();
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                result.push({
-                    date: format(date, "MMM dd"),
-                    cost: 0,
-                    count: 0,
-                });
-            }
-        }
-
-        return result;
+        return processDateData(grouped);
     }, [data]);
 
     const modelDistribution = React.useMemo(() => {
