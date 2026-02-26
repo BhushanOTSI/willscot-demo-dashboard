@@ -33,6 +33,13 @@ export function DateRangePicker() {
     });
   };
 
+  const days = dateRange?.from && dateRange?.to
+    ? Math.ceil(
+      (dateRange.to.getTime() - dateRange.from.getTime()) /
+      (1000 * 60 * 60 * 24)
+    );
+  const isLast7Days = days === 7;
+  const isLast30Days = days === 30;
   return (
     <div className="flex items-end gap-2">
       <Field className="w-[300px]">
@@ -72,36 +79,17 @@ export function DateRangePicker() {
       </Field>
       <div className="flex gap-1">
         <Button
-          variant="outline"
+          variant={isLast7Days ? "default" : "outline"}
           size="sm"
           onClick={() => handleQuickFilter(7)}
-          className={
-            dateRange?.from && dateRange?.to
-              ? Math.ceil(
-                  (dateRange.to.getTime() - dateRange.from.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                ) === 7
-                ? "bg-accent"
-                : ""
-              : ""
-          }
         >
           Last 7 days
         </Button>
         <Button
-          variant="outline"
+          variant={isLast30Days ? "default" : "outline"}
           size="sm"
           onClick={() => handleQuickFilter(30)}
-          className={
-            dateRange?.from && dateRange?.to
-              ? Math.ceil(
-                  (dateRange.to.getTime() - dateRange.from.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                ) === 30
-                ? "bg-accent"
-                : ""
-              : ""
-          }
+
         >
           Last 30 days
         </Button>
