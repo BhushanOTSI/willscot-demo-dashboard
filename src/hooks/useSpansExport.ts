@@ -38,12 +38,14 @@ export interface SpansExportResponse {
   start_time_high: string;
   where: string | null;
   data: SpanData[];
+  next_cursor: string | null;
 }
 
 export interface UseSpansExportParams {
   projectName?: string;
   startTime?: string;
   endTime?: string;
+  limit?: number;
 }
 
 /**
@@ -60,33 +62,77 @@ export const useSpansExport = <TData = SpansExportResponse>(
   options = {}
 ) => {
   const {
-    projectName = 'CopilotStudio4',
-    startTime = '2026-02-01T00:00:00Z',
-    endTime = '2026-02-25T23:59:59Z',
+    projectName = '',
+    startTime = '',
+    endTime = '',
+    limit = 100,
   } = params;
 
   return useQuery<SpansExportResponse, Error, TData>({
     queryKey: ['spansExport', projectName, startTime, endTime],
     queryFn: async () => {
-      const url = new URL('https://willscot-ariza-api.vercel.app/spans/export');
-      url.searchParams.set('project_name', projectName);
-      url.searchParams.set('start_time', startTime);
-      url.searchParams.set('end_time', endTime);
+      const allData: SpanData[] = [];
+      let cursor: string | null = null;
+      let firstResponse: SpansExportResponse | null = null;
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
+      do {
+        const url = new URL('https://willscot-ariza-api.vercel.app/spans/export_new');
+        url.searchParams.set('project_name', projectName);
+        url.searchParams.set('start_time_low', startTime);
+        url.searchParams.set('start_time_high', endTime);
+        url.searchParams.set('limit_per_page', limit.toString());
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch spans export: ${response.statusText}`);
+        if (cursor) {
+          url.searchParams.set('cursor', cursor);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(cursor ? { cursor } : {}),
+        });
+
+        if (response.ok) {
+          const data: SpansExportResponse = await response.json();
+
+          if (!firstResponse) {
+            firstResponse = data;
+          }
+
+          if (data.data && Array.isArray(data.data)) {
+            allData.push(...data.data);
+          }
+
+          cursor = data.next_cursor;
+        }
+
+        if (!firstResponse) {
+          firstResponse = {
+            project_name: projectName,
+            row_count: 0,
+            columns: [],
+            start_time_low: startTime,
+            start_time_high: endTime,
+            where: null,
+            data: [],
+            next_cursor: null,
+          };
+        }
+
+      } while (cursor);
+
+
+      const finalResponse: SpansExportResponse = {
+        ...firstResponse,
+        data: allData,
+        row_count: allData.length,
+        next_cursor: null,
       }
 
-      return response.json();
+      return finalResponse;
     },
     ...options,
   });

@@ -248,7 +248,7 @@ function buildChildrenTree(
     throw new Error(`Span not found: ${spanId}`);
   }
 
-  const isTrace = span.parent_id === null;
+  const isTrace = !span.parent_id;
   const children: HierarchicalSpanData[] = [];
 
   // Find all direct children of this span
@@ -301,7 +301,7 @@ function buildChildrenTree(
  */
 export function transformToHierarchical(data: SpanData[]): HierarchicalSpanData[] {
   // Find all traces (top-level spans with parent_id === null)
-  const traces = data.filter((span) => span.parent_id === null);
+  const traces = data.filter((span) => !span.parent_id);
 
   // Build tree for each trace
   return traces.map((trace) => buildChildrenTree(trace["context.span_id"], data, 0));
@@ -317,7 +317,7 @@ export function useSpansTable(data: SpanData[]) {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 10000, // Show all records (set to a very large number)
+    pageSize: 100,
   });
 
   // Transform data to hierarchical structure
@@ -351,6 +351,7 @@ export function useSpansTable(data: SpanData[]) {
     return result;
   }, [hierarchicalData, expanded]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: flattenedData,
     columns,

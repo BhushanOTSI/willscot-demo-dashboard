@@ -42,7 +42,6 @@ export function SpansDataTable({
   }
 
   const rows = table.getRowModel().rows;
-
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-md border">
@@ -74,10 +73,8 @@ export function SpansDataTable({
                 const isExpanded = expanded[data["context.span_id"]] || false;
                 const level = data.level || 0;
 
-                // Determine background color based on trace state and expansion
                 const getRowClassName = () => {
                   if (isTrace) {
-                    // Darker background when expanded, lighter when collapsed
                     return isExpanded
                       ? "bg-primary/20 hover:bg-primary/30 font-bold"
                       : "bg-muted/30 font-medium";
@@ -95,7 +92,6 @@ export function SpansDataTable({
                     className={getRowClassName()}
                   >
                     {row.getVisibleCells().map((cell) => {
-                      // Override the name cell to add expand/collapse button
                       if (cell.column.id === "name") {
                         return (
                           <TableCell key={cell.id}>
@@ -126,6 +122,8 @@ export function SpansDataTable({
                           </TableCell>
                         );
                       }
+
+
                       return (
                         <TableCell key={cell.id}>
                           {flexRender(

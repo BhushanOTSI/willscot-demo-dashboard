@@ -48,7 +48,6 @@ export function ProjectFilter() {
             id="project-filter"
             placeholder={isLoading ? "Loading..." : "Select a project"}
             disabled={isLoading}
-            showClear
           />
           <ComboboxContent anchor={anchorRef}>
             <ComboboxEmpty>No projects found.</ComboboxEmpty>

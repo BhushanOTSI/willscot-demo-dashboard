@@ -14,6 +14,7 @@ export function useSpansData() {
       projectName: selectedProject?.name,
       startTime,
       endTime,
+      limit: 100,
     },
     {
       enabled: !!selectedProject?.name && !!startTime && !!endTime,
@@ -21,7 +22,6 @@ export function useSpansData() {
   );
 
   const spansData = data?.data || [];
-
   return {
     spansData,
     isLoading,
