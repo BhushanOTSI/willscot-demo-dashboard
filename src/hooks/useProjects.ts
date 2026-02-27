@@ -43,10 +43,16 @@ export const useProjects = <TData = ProjectsResponse>(
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.statusText}`);
+        return {
+          space_id: '',
+          project_count: 0,
+          projects: [],
+        };
       }
 
-      return response.json();
+      const data: ProjectsResponse = await response.json();
+
+      return data;
     },
     ...options,
   });

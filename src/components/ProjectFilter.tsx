@@ -8,14 +8,18 @@ import {
   ComboboxEmpty,
 } from "@/components/ui/combobox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { useProjects, type Project } from "@/hooks/useProjects";
+import { type ProjectsResponse, type Project } from "@/hooks/useProjects";
 import { useStore } from "@/stores/useStore";
 
-export function ProjectFilter() {
-  const { data, isLoading } = useProjects();
+interface ProjectFilterProps {
+  isLoading: boolean;
+  data: ProjectsResponse;
+}
+
+export function ProjectFilter({ isLoading, data }: ProjectFilterProps) {
   const { selectedProject, setSelectedProject } = useStore();
 
-  const projects = data?.projects || [];
+  const projects = React.useMemo(() => data?.projects || [], [data?.projects]);
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const [open, setOpen] = React.useState(false);
 
